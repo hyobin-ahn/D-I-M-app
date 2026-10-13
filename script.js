@@ -597,36 +597,41 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const item = Array.isArray(jsonResponse) ? jsonResponse[0] : jsonResponse;
         
         const renderScholar = (label, data) => {
-            if (!data) return `<div class="saju-box"><p class="saju-box-title">${label}</p><p style="color:var(--text-secondary)">해설 없음</p></div>`;
-            // 새 형식: { original, translation, book } 객체
-            if (typeof data === 'object' && data.original !== undefined) {
-                const bookBadge = data.book ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
-                const isNotOriginal = data.original.startsWith('[') || data.original.includes('미상');
-                const originalHtml = isNotOriginal 
-                    ? `<div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--border);">
-                         <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[판본 정보]</div>
-                         <p style="font-family: serif; color: var(--text-secondary); font-size: 0.88em; margin: 0;">${data.original}</p>
-                       </div>`
-                    : `<div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
-                         <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
-                         <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${data.original}</p>
-                       </div>`;
+            const hasData = data && typeof data === 'object';
+            const original = (hasData && data.original) ? data.original.trim() : (typeof data === 'string' ? data.trim() : '');
+            const translation = (hasData && data.translation) ? data.translation.trim() : '';
+            const bookBadge = (hasData && data.book) ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
 
+            // 원문이 없거나 '원문 미상' 등인 경우: 임의 해설을 일절 표시하지 않고 깔끔하게 비워둠
+            const isOriginalEmpty = !original || original === '""' || original.includes('원문 미상') || original.includes('미상');
+
+            if (isOriginalEmpty) {
                 return `
-                    <div class="saju-box" style="margin-bottom: 12px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div class="saju-box" style="margin-bottom: 12px; opacity: 0.55;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
                             <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
                             ${bookBadge}
                         </div>
-                        ${originalHtml}
-                        <div style="padding-top: 4px;">
-                            <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
-                            <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${data.translation}</p>
-                        </div>
+                        <p style="color:var(--text-muted); font-size:0.85em; margin: 4px 0 0;">(원문 없음)</p>
                     </div>`;
             }
-            // 구 형식: 단순 문자열 (하위 호환)
-            return `<div class="saju-box"><p class="saju-box-title">${label}</p><p>${data}</p></div>`;
+
+            return `
+                <div class="saju-box" style="margin-bottom: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
+                        ${bookBadge}
+                    </div>
+                    <div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
+                        <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
+                        <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${original}</p>
+                    </div>
+                    ${translation ? `
+                    <div style="padding-top: 4px;">
+                        <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
+                        <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${translation}</p>
+                    </div>` : ''}
+                </div>`;
         };
 
         const renderScholars = (item) => {
