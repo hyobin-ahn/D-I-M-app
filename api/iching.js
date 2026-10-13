@@ -9,9 +9,9 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing name, title, or text parameter in JSON body' });
   }
 
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY is not set in environment variables' });
+    return res.status(500).json({ error: 'OPENAI_API_KEY is not set in environment variables' });
   }
 
   const prompt = `
@@ -45,21 +45,26 @@ ${text}
   "shuanghu": "쌍호호씨의 해석",
   "yunfeng": "운봉호씨의 해석"
 }
-결과는 오직 유효한 JSON 형식으로만 반환해야 합니다. 마크다운 블록(\`\`\`json) 없이 순수 JSON 문자열만 반환하거나 마크다운 블록을 사용해도 파싱할 수 있게 해주세요. 다른 말은 덧붙이지 마세요.
+결과는 오직 유효한 JSON 형식으로만 반환해야 합니다. 다른 말은 덧붙이지 마세요.
 `;
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+    const openaiUrl = 'https://api.openai.com/v1/chat/completions';
 
     let response;
     let data;
     for (let attempt = 0; attempt < 3; attempt++) {
-      response = await fetch(geminiUrl, {
+      response = await fetch(openaiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4 }
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.4,
+          response_format: { type: 'json_object' }
         })
       });
 
@@ -70,22 +75,12 @@ ${text}
 
       if (attempt === 2) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Gemini API error: ${response.status}`);
+        throw new Error(errorData.error?.message || `OpenAI API error: ${response.status}`);
       }
       await new Promise(r => setTimeout(r, 1500));
     }
-    let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    if (responseText.startsWith('```json')) {
-      responseText = responseText.substring(7);
-    }
-    if (responseText.startsWith('```')) {
-      responseText = responseText.substring(3);
-    }
-    if (responseText.endsWith('```')) {
-      responseText = responseText.substring(0, responseText.length - 3);
-    }
-    responseText = responseText.trim();
+
+    const responseText = data.choices?.[0]?.message?.content?.trim() || '{}';
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
