@@ -598,13 +598,31 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         
         const renderScholar = (label, data) => {
             if (!data) return `<div class="saju-box"><p class="saju-box-title">${label}</p><p style="color:var(--text-secondary)">해설 없음</p></div>`;
-            // 새 형식: { original, translation } 객체
+            // 새 형식: { original, translation, book } 객체
             if (typeof data === 'object' && data.original !== undefined) {
+                const bookBadge = data.book ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
+                const isNotOriginal = data.original.startsWith('[') || data.original.includes('미상');
+                const originalHtml = isNotOriginal 
+                    ? `<div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--border);">
+                         <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[판본 정보]</div>
+                         <p style="font-family: serif; color: var(--text-secondary); font-size: 0.88em; margin: 0;">${data.original}</p>
+                       </div>`
+                    : `<div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
+                         <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
+                         <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${data.original}</p>
+                       </div>`;
+
                 return `
-                    <div class="saju-box">
-                        <p class="saju-box-title">${label}</p>
-                        <p style="font-family: serif; color: var(--text-secondary); font-size: 0.95em; letter-spacing: 0.05em; margin-bottom: 6px;">${data.original}</p>
-                        <p style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">${data.translation}</p>
+                    <div class="saju-box" style="margin-bottom: 12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
+                            ${bookBadge}
+                        </div>
+                        ${originalHtml}
+                        <div style="padding-top: 4px;">
+                            <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
+                            <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${data.translation}</p>
+                        </div>
                     </div>`;
             }
             // 구 형식: 단순 문자열 (하위 호환)
@@ -614,10 +632,10 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const renderScholars = (item) => {
             if (!item) return '';
             return `
-                <div style="background: var(--bg-2); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
-                    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 10px;">
-                        <h5 style="margin: 0; color: var(--text-primary);">[${item.title}] 주석</h5>
-                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">원문(한문) / 번역</p>
+                <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px;">
+                        <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em;">[${item.title}] 7대 학자 정본 주석</h5>
+                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">조선본 『주역전의대전』 및 역대 정본(번체 정자 繁體字) 기준</p>
                     </div>
                     ${renderScholar('왕필 (王弼)', item.wangbi)}
                     ${renderScholar('공영달 (孔穎達)', item.kongyingda)}
