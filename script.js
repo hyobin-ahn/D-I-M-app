@@ -596,23 +596,40 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const jsonResponse = await response.json();
         const item = Array.isArray(jsonResponse) ? jsonResponse[0] : jsonResponse;
         
+        const renderScholar = (label, data) => {
+            if (!data) return `<div class="saju-box"><p class="saju-box-title">${label}</p><p style="color:var(--text-secondary)">해설 없음</p></div>`;
+            // 새 형식: { original, translation } 객체
+            if (typeof data === 'object' && data.original !== undefined) {
+                return `
+                    <div class="saju-box">
+                        <p class="saju-box-title">${label}</p>
+                        <p style="font-family: serif; color: var(--text-secondary); font-size: 0.95em; letter-spacing: 0.05em; margin-bottom: 6px;">${data.original}</p>
+                        <p style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">${data.translation}</p>
+                    </div>`;
+            }
+            // 구 형식: 단순 문자열 (하위 호환)
+            return `<div class="saju-box"><p class="saju-box-title">${label}</p><p>${data}</p></div>`;
+        };
+
         const renderScholars = (item) => {
             if (!item) return '';
             return `
                 <div style="background: var(--bg-2); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
                     <div style="border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 10px;">
                         <h5 style="margin: 0; color: var(--text-primary);">[${item.title}] 주석</h5>
+                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">원문(한문) / 번역</p>
                     </div>
-                    <div class="saju-box"><p class="saju-box-title">왕필</p><p>${item.wangbi || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">공영달</p><p>${item.kongyingda || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">소식</p><p>${item.sushi || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">정이</p><p>${item.chengyi || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">주희</p><p>${item.zhuxi || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">쌍호호씨</p><p>${item.shuanghu || '해설 없음'}</p></div>
-                    <div class="saju-box"><p class="saju-box-title">운봉호씨</p><p>${item.yunfeng || '해설 없음'}</p></div>
+                    ${renderScholar('왕필 (王弼)', item.wangbi)}
+                    ${renderScholar('공영달 (孔穎達)', item.kongyingda)}
+                    ${renderScholar('소식 (蘇軾)', item.sushi)}
+                    ${renderScholar('정이 (程頤)', item.chengyi)}
+                    ${renderScholar('주희 (朱熹)', item.zhuxi)}
+                    ${renderScholar('쌍호호씨 (胡炳文)', item.shuanghu)}
+                    ${renderScholar('운봉호씨 (胡一桂)', item.yunfeng)}
                 </div>
             `;
         };
+
         
         resultContainer.innerHTML = renderScholars(item);
         resultContainer.style.display = 'block';
@@ -624,7 +641,15 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         console.error(e);
         btnEl.disabled = false;
         btnEl.textContent = '해설 실패 (재시도)';
-        alert(e.message || 'AI 해설을 불러오는 중 오류가 발생했습니다.');
+        // alert 대신 인라인 오류 메시지 표시
+        let errMsg = e.message || 'AI 해설을 불러오는 중 오류가 발생했습니다.';
+        if (errMsg.includes('high demand') || errMsg.includes('503')) {
+            errMsg = '⚠️ AI 서버가 혼잡합니다. 잠시 후 재시도해주세요.';
+        } else if (errMsg.includes('not found') || errMsg.includes('404')) {
+            errMsg = '⚠️ AI 모델 오류가 발생했습니다. 잠시 후 재시도해주세요.';
+        }
+        resultContainer.innerHTML = `<div style="color: var(--text-secondary); font-size: 0.85em; padding: 10px; text-align:center;">${errMsg}</div>`;
+        resultContainer.style.display = 'block';
     }
 }
 
