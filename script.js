@@ -583,8 +583,10 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                id: hexagram.id,
                 name: hexagram.name_korean + '(' + hexagram.name_chinese + ')',
-                title: title,
+                nameChinese: hexagram.name_chinese,
+                title: lineIndex === -1 ? '卦辭(괘사)' : line.name,
                 text: text
             })
         });
