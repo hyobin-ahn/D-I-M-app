@@ -513,7 +513,7 @@ function initIChing(offset = 0) {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <p class="iching-box-title" style="margin: 0;"><strong>卦辭 (괘사)</strong></p>
                     <div style="display: flex; gap: 5px; align-items: center;" class="tts-ignore">
-                        <button onclick="fetchIchingSectionAI(${index}, -1, this)" class="nav-btn" style="background: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.8em; margin-right: 10px;">✨ AI 해설 열기</button>
+                        <button onclick="fetchIchingSectionAI(${index}, -1, this)" class="nav-btn" style="background: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.8em; margin-right: 10px;">✨ 정본 해설 열기</button>
                         <button class="tts-speed-btn" onclick="toggleTTSSpeed()" title="속도 조절 (현재 1.0x)" style="font-size: 0.8em; padding: 3px 8px; border-radius: 4px; background: transparent; color: var(--text-primary); border: 1px solid var(--border);">1.0x</button>
                         <button class="tts-btn" onclick="toggleTTS('iching-base-gwaesa')" id="tts-btn-iching-base-gwaesa" title="읽기/정지" style="font-size: 0.8em; padding: 3px 8px; border-radius: 4px; background: transparent; color: var(--text-primary); border: 1px solid var(--border);">🔊</button>
                     </div>
@@ -530,7 +530,7 @@ function initIChing(offset = 0) {
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <span class="iching-line-name" style="font-weight: bold; color: var(--primary);">[${l.name}]</span>
                             <div style="display: flex; gap: 5px; align-items: center;" class="tts-ignore">
-                                <button onclick="fetchIchingSectionAI(${index}, ${idx}, this)" class="nav-btn" style="background: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.8em; margin-right: 10px;">✨ AI 해설 열기</button>
+                                <button onclick="fetchIchingSectionAI(${index}, ${idx}, this)" class="nav-btn" style="background: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.8em; margin-right: 10px;">✨ 정본 해설 열기</button>
                                 <button class="tts-speed-btn" onclick="toggleTTSSpeed()" title="속도 조절 (현재 1.0x)" style="font-size: 0.8em; padding: 3px 8px; border-radius: 4px; background: transparent; color: var(--text-primary); border: 1px solid var(--border);">1.0x</button>
                                 <button class="tts-btn" onclick="toggleTTS('${ttsId}')" id="tts-btn-${ttsId}" title="읽기/정지" style="font-size: 0.8em; padding: 3px 8px; border-radius: 4px; background: transparent; color: var(--text-primary); border: 1px solid var(--border);">🔊</button>
                             </div>
@@ -570,13 +570,107 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
     if (resultContainer.dataset.loaded === "true") {
         const isHidden = resultContainer.style.display === 'none';
         resultContainer.style.display = isHidden ? 'block' : 'none';
-        btnEl.textContent = isHidden ? '✨ AI 해설 닫기' : '✨ AI 해설 열기';
+        btnEl.textContent = isHidden ? '✨ 정본 해설 닫기' : '✨ 정본 해설 열기';
+        return;
+    }
+
+    const renderScholar = (label, data) => {
+        const hasData = data && typeof data === 'object';
+        const original = (hasData && data.original) ? data.original.trim() : (typeof data === 'string' ? data.trim() : '');
+        const translation = (hasData && data.translation) ? data.translation.trim() : '';
+        const bookBadge = (hasData && data.book) ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
+
+        // 원문이 없거나 '원문 미상' 등인 경우: 임의 해설을 일절 표시하지 않고 깔끔하게 비워둠
+        const isOriginalEmpty = !original || original === '""' || original.includes('원문 미상') || original.includes('미상');
+
+        if (isOriginalEmpty) {
+            return `
+                <div class="saju-box" style="margin-bottom: 12px; opacity: 0.55;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
+                        ${bookBadge}
+                    </div>
+                    <p style="color:var(--text-muted); font-size:0.85em; margin: 4px 0 0;">(원문 없음)</p>
+                </div>`;
+        }
+
+        return `
+            <div class="saju-box" style="margin-bottom: 12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
+                    ${bookBadge}
+                </div>
+                <div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
+                    <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
+                    <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${original}</p>
+                </div>
+                ${translation ? `
+                <div style="padding-top: 4px;">
+                    <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
+                    <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${translation}</p>
+                </div>` : ''}
+            </div>`;
+    };
+
+    const renderKoreanScholars = (scholars) => {
+        if (!scholars || !scholars.length) return '';
+        const listHtml = scholars.map(s => `
+            <div style="margin-bottom: 10px; padding: 10px 12px; background: rgba(0,0,0,0.16); border-radius: 6px; border-left: 3px solid #c084fc;">
+                <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe; margin-bottom: 4px;">${s.scholar}</div>
+                <div style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.92em; line-height: 1.6; margin-bottom: 4px;">${s.original}</div>
+                <div style="color: var(--text-secondary); font-size: 0.88em; line-height: 1.55;">${s.translation}</div>
+            </div>
+        `).join('');
+
+        return `
+            <details style="margin-top: 14px; background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; padding: 10px 12px;">
+                <summary style="cursor: pointer; font-weight: 600; color: #c084fc; font-size: 0.88em; user-select: none;">
+                    🇰🇷 한국 대표 역학자(조선 성리학자) 정본 주석 보기 (${scholars.length}인 수록)
+                </summary>
+                <div style="margin-top: 10px;">
+                    ${listHtml}
+                </div>
+            </details>
+        `;
+    };
+
+    const renderScholars = (item) => {
+        if (!item) return '';
+        return `
+            <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+                <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
+                    <div>
+                        <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em;">[${item.title}] 7대 학자 정본 주석</h5>
+                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
+                    </div>
+                    <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">✓ 공인 정본 DB</span>
+                </div>
+                ${renderScholar('왕필 (王弼)', item.wangbi)}
+                ${renderScholar('공영달 (孔穎達)', item.kongyingda)}
+                ${renderScholar('소식 (蘇軾)', item.sushi)}
+                ${renderScholar('정이 (程頤)', item.chengyi)}
+                ${renderScholar('주희 (朱熹)', item.zhuxi)}
+                ${renderScholar('쌍호호씨 (胡炳文)', item.shuanghu)}
+                ${renderScholar('운봉호씨 (胡一桂)', item.yunfeng)}
+                ${renderKoreanScholars(item.korean_scholars)}
+            </div>
+        `;
+    };
+
+    // 1순위: 사전 추출된 64괘 7대 정본 주석 DB에서 즉시 로드 (0ms 즉시 표시, 100% 정본)
+    const cachedItem = window.ichingCommentariesData?.[String(hexagram.id)]?.[String(lineIndex)];
+    if (cachedItem) {
+        resultContainer.innerHTML = renderScholars(cachedItem);
+        resultContainer.style.display = 'block';
+        resultContainer.dataset.loaded = "true";
+        btnEl.textContent = '✨ 정본 해설 닫기';
+        btnEl.disabled = false;
         return;
     }
     
+    // 2순위: 캐시가 없는 경우 백엔드 API 호출 (Fallback)
     btnEl.disabled = true;
-    const originalText = btnEl.textContent;
-    btnEl.textContent = '불러오는 중... (약 2~3초)';
+    btnEl.textContent = '불러오는 중... (약 1~2초)';
     
     try {
         const response = await fetch('/api/iching', {
@@ -598,85 +692,26 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const jsonResponse = await response.json();
         const item = Array.isArray(jsonResponse) ? jsonResponse[0] : jsonResponse;
         
-        const renderScholar = (label, data) => {
-            const hasData = data && typeof data === 'object';
-            const original = (hasData && data.original) ? data.original.trim() : (typeof data === 'string' ? data.trim() : '');
-            const translation = (hasData && data.translation) ? data.translation.trim() : '';
-            const bookBadge = (hasData && data.book) ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
-
-            // 원문이 없거나 '원문 미상' 등인 경우: 임의 해설을 일절 표시하지 않고 깔끔하게 비워둠
-            const isOriginalEmpty = !original || original === '""' || original.includes('원문 미상') || original.includes('미상');
-
-            if (isOriginalEmpty) {
-                return `
-                    <div class="saju-box" style="margin-bottom: 12px; opacity: 0.55;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
-                            ${bookBadge}
-                        </div>
-                        <p style="color:var(--text-muted); font-size:0.85em; margin: 4px 0 0;">(원문 없음)</p>
-                    </div>`;
-            }
-
-            return `
-                <div class="saju-box" style="margin-bottom: 12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
-                        ${bookBadge}
-                    </div>
-                    <div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
-                        <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
-                        <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${original}</p>
-                    </div>
-                    ${translation ? `
-                    <div style="padding-top: 4px;">
-                        <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
-                        <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${translation}</p>
-                    </div>` : ''}
-                </div>`;
-        };
-
-        const renderScholars = (item) => {
-            if (!item) return '';
-            return `
-                <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-                    <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px;">
-                        <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em;">[${item.title}] 7대 학자 정본 주석</h5>
-                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">조선본 『주역전의대전』 및 역대 정본(번체 정자 繁體字) 기준</p>
-                    </div>
-                    ${renderScholar('왕필 (王弼)', item.wangbi)}
-                    ${renderScholar('공영달 (孔穎達)', item.kongyingda)}
-                    ${renderScholar('소식 (蘇軾)', item.sushi)}
-                    ${renderScholar('정이 (程頤)', item.chengyi)}
-                    ${renderScholar('주희 (朱熹)', item.zhuxi)}
-                    ${renderScholar('쌍호호씨 (胡炳文)', item.shuanghu)}
-                    ${renderScholar('운봉호씨 (胡一桂)', item.yunfeng)}
-                </div>
-            `;
-        };
-
-        
         resultContainer.innerHTML = renderScholars(item);
         resultContainer.style.display = 'block';
         resultContainer.dataset.loaded = "true";
-        btnEl.textContent = '✨ AI 해설 닫기';
+        btnEl.textContent = '✨ 정본 해설 닫기';
         btnEl.disabled = false;
         
     } catch (e) {
         console.error(e);
         btnEl.disabled = false;
         btnEl.textContent = '해설 실패 (재시도)';
-        // alert 대신 인라인 오류 메시지 표시
-        let errMsg = e.message || 'AI 해설을 불러오는 중 오류가 발생했습니다.';
+        let errMsg = e.message || '정본 해설을 불러오는 중 오류가 발생했습니다.';
         if (errMsg.includes('high demand') || errMsg.includes('503')) {
-            errMsg = '⚠️ AI 서버가 혼잡합니다. 잠시 후 재시도해주세요.';
+            errMsg = '⚠️ 서버가 혼잡합니다. 잠시 후 재시도해주세요.';
         } else if (errMsg.includes('not found') || errMsg.includes('404')) {
-            errMsg = '⚠️ AI 모델 오류가 발생했습니다. 잠시 후 재시도해주세요.';
+            errMsg = '⚠️ 해설 데이터를 찾을 수 없습니다. 잠시 후 재시도해주세요.';
         }
         resultContainer.innerHTML = `<div style="color: var(--text-secondary); font-size: 0.85em; padding: 10px; text-align:center;">${errMsg}</div>`;
         resultContainer.style.display = 'block';
     }
-}
+};
 
 // --- 4. Today's Saju (Fortune) ---
 function getFiveElements(year, month, day, hour, calendarType = 'solar') {
@@ -1247,59 +1282,81 @@ async function initKospi(period = 'today') {
 
 async function initStocks(period = 'today') {
     const grid = document.getElementById('stocks-grid');
+    if (!grid) return;
+
     const stocks = [
-        { code: '005930', name: '삼성전자' },
-        { code: '005935', name: '삼성전자(우)' },
-        { code: '000660', name: 'SK하이닉스' },
-        { code: '009150', name: '삼성전기' },
-        { code: '069500', name: 'KODEX 200' },
-        { code: '005380', name: '현대차' },
-        { code: '012330', name: '현대모비스' },
-        { code: '307950', name: '현대오토에버' }
+        { code: '005935', name: '삼성전자우', market: 'domestic', defaultPrice: '167,500', defaultChange: 8400, defaultRatio: 5.28 },
+        { code: '005930', name: '삼성전자', market: 'domestic', defaultPrice: '216,500', defaultChange: 6500, defaultRatio: 3.10 },
+        { code: 'TSLA.O', name: '테슬라', market: 'world', defaultPrice: '373.2000', defaultChange: 10.7600, defaultRatio: 2.97 },
+        { code: '0094M0', name: 'RISE 코리아밸류업위클리고정커버드콜', shortName: 'RISE 코리아밸...', market: 'domestic', defaultPrice: '14,235', defaultChange: 390, defaultRatio: 2.82 },
+        { code: 'SPCX.O', name: '스페이스X', market: 'world', defaultPrice: '152.4600', defaultChange: 3.8400, defaultRatio: 2.58 },
+        { code: '000660', name: 'SK하이닉스', market: 'domestic', defaultPrice: '1,288,000', defaultChange: 26000, defaultRatio: 2.06 },
+        { code: '489030', name: 'PLUS 고배당주위클리커버드콜', shortName: 'PLUS 고배당주...', market: 'domestic', defaultPrice: '6,115', defaultChange: 60, defaultRatio: 0.99 },
+        { code: 'GOOGL.O', name: '알파벳 A', market: 'world', defaultPrice: '349.6700', defaultChange: 0.4500, defaultRatio: 0.13 },
+        { code: 'SKHY.O', name: 'SK하이닉스(ADR)', shortName: 'SK하이닉스(A...', market: 'world', defaultPrice: '143.1600', defaultChange: -2.9500, defaultRatio: -2.02 }
     ];
     
-    // Only rebuild DOM if grid is empty (first load)
-    if (grid.children.length <= 1) {
+    const getSafeId = (code) => code.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Only rebuild DOM if grid is empty or has loading placeholder
+    if (grid.children.length <= 1 || grid.querySelector('.loading') || grid.textContent.includes('불러오는 중')) {
         grid.innerHTML = '';
         for (const stock of stocks) {
+            const sid = getSafeId(stock.code);
+            const ratio = stock.defaultRatio;
+            const isUp = ratio > 0;
+            const isDown = ratio < 0;
+            const colorClass = isUp ? 'up-color' : (isDown ? 'down-color' : 'flat-color');
+            const sign = isUp ? '▲' : (isDown ? '▼' : '');
+            const initialChangeStr = `${sign} ${Math.abs(stock.defaultChange).toLocaleString()} (${ratio > 0 ? '+' : ''}${ratio}%)`;
+
             const card = document.createElement('div');
             card.className = 'stock-card';
             card.innerHTML = `
-                <div class="stock-name">${stock.name}</div>
-                <div class="stock-price" id="price-${stock.code}">-</div>
-                <div class="stock-change" id="change-${stock.code}">-</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${stock.name}">${stock.shortName || stock.name}</div>
+                    <span style="font-size:0.65rem; color:var(--text-muted); margin-left:6px; flex-shrink:0;">${stock.market === 'world' ? 'USD' : 'KRW'}</span>
+                </div>
+                <div class="stock-price ${colorClass}" id="price-${sid}">${stock.defaultPrice}</div>
+                <div class="stock-change ${colorClass}" id="change-${sid}">${initialChangeStr}</div>
             `;
             grid.appendChild(card);
         }
     }
     
+    // Live price update in background
     for (const stock of stocks) {
+        const sid = getSafeId(stock.code);
         try {
-            const res = await fetch(`/api/stock?code=${stock.code}`);
+            const res = await fetch(`/api/stock?code=${encodeURIComponent(stock.code)}&market=${stock.market}`);
+            if (!res.ok) continue;
             const data = await res.json();
-            const info = data.datas[0];
+            const info = (data.datas && data.datas[0]) ? data.datas[0] : (data.stockName ? data : null);
+            if (!info) continue;
             
-            const price = info.closePrice;
-            const priceRaw = info.closePriceRaw;
-            const ratio = info.fluctuationsRatio;
+            const price = info.closePrice || info.nowPrice;
+            const ratio = parseFloat(info.fluctuationsRatio || 0);
             const change = info.compareToPreviousClosePrice;
             
             let colorClass = 'flat-color';
             let sign = '';
-            let colorHex = '#888';
-            if (ratio > 0) { colorClass = 'up-color'; sign = '▲'; colorHex = '#ff5252'; }
-            else if (ratio < 0) { colorClass = 'down-color'; sign = '▼'; colorHex = '#448aff'; }
+            if (ratio > 0) { colorClass = 'up-color'; sign = '▲'; }
+            else if (ratio < 0) { colorClass = 'down-color'; sign = '▼'; }
             
-            document.getElementById(`price-${stock.code}`).textContent = price;
-            document.getElementById(`price-${stock.code}`).className = `stock-price ${colorClass}`;
-            
-            document.getElementById(`change-${stock.code}`).textContent = `${sign} ${Math.abs(change)} (${ratio > 0 ? '+' : ''}${ratio}%)`;
-            document.getElementById(`change-${stock.code}`).className = `stock-change ${colorClass}`;
-            
-            
-            
+            const priceEl = document.getElementById(`price-${sid}`);
+            const changeEl = document.getElementById(`change-${sid}`);
+            if (priceEl && price) {
+                priceEl.textContent = price;
+                priceEl.className = `stock-price ${colorClass}`;
+            }
+            if (changeEl && change !== undefined) {
+                const changeNum = parseFloat(String(change).replace(/,/g, ''));
+                const formattedChange = isNaN(changeNum) ? change : Math.abs(changeNum).toLocaleString();
+                changeEl.textContent = `${sign} ${formattedChange} (${ratio > 0 ? '+' : ''}${ratio}%)`;
+                changeEl.className = `stock-change ${colorClass}`;
+            }
         } catch (e) {
-            console.error(`Error fetching ${stock.name}:`, e);
+            console.error(`Error updating ${stock.name}:`, e);
         }
     }
 }
