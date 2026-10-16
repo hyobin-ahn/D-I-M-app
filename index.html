@@ -292,8 +292,10 @@
                     <div style="text-align:center; color: var(--text-secondary); padding: 10px;">코스피 정보 불러오는 중...</div>
                 </div>
                 
-                <div style="text-align: center; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px;">
                     <button onclick="toggleStocks()" id="stocks-toggle-btn" class="nav-btn toggle-btn" title="접기/펼치기"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="chevron-icon"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                    <button onclick="openStockManageModal()" id="stock-manage-btn" class="nav-btn" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 4px; display: none; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-primary); cursor: pointer;" title="종목 추가 및 순서 관리">⚙️ 종목 관리</button>
+                    <button onclick="resetStocksToDefault()" id="stock-reset-btn" class="nav-btn" style="padding: 4px 8px; font-size: 0.78rem; border-radius: 4px; display: none; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;" title="기본 종목으로 초기화">↺ 초기화</button>
                 </div>
                 
                 <div class="stocks-grid" id="stocks-grid" style="display: none;">
@@ -441,11 +443,64 @@
         </footer>
     </div>
 
+    <!-- Stock Management Modal -->
+    <div id="stock-modal-overlay" class="modal-overlay" onclick="if(event.target === this) closeStockManageModal()">
+        <div class="shortcut-modal-content" style="width: 440px; max-width: 92vw; max-height: 88vh; display: flex; flex-direction: column; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                    <span>📊 관심 종목 관리</span>
+                </h3>
+                <button onclick="closeStockManageModal()" class="btn-secondary" style="padding: 2px 8px; font-size: 0.9rem; border: none; cursor: pointer;">✕</button>
+            </div>
+            
+            <!-- Add New Stock Section -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--accent); margin-bottom: 8px;">+ 새 종목 추가</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                        <label style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">종목명</label>
+                        <input type="text" id="new-stock-name" placeholder="예: 엔비디아, 카카오" style="width: 100%; box-sizing: border-box; padding: 7px 9px; font-size: 0.82rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-bottom: 3px;">종목코드 / 티커</label>
+                        <input type="text" id="new-stock-code" placeholder="예: 035720 또는 NVDA.O" style="width: 100%; box-sizing: border-box; padding: 7px 9px; font-size: 0.82rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                    <div style="display: flex; gap: 10px; font-size: 0.78rem; color: var(--text-secondary);">
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <input type="radio" name="new-stock-market" value="domestic" checked> 국내(KRW)
+                        </label>
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <input type="radio" name="new-stock-market" value="world"> 해외(USD)
+                        </label>
+                    </div>
+                    <button onclick="addNewStockFromModal()" class="nav-btn" style="padding: 5px 12px; font-size: 0.8rem; background: var(--accent); color: #fff; border-radius: 4px; font-weight: 600; border: none; cursor: pointer;">추가하기</button>
+                </div>
+            </div>
+
+            <!-- Existing Stocks List with Reorder & Delete -->
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span>등록된 종목 순서</span>
+                <span style="font-size: 0.7rem; color: var(--text-muted);">▲▼ 순서 이동 / ✕ 삭제</span>
+            </div>
+            
+            <div id="stock-manage-list" style="overflow-y: auto; flex: 1; max-height: 250px; padding-right: 4px; display: flex; flex-direction: column; gap: 6px;">
+                <!-- Injected via JS -->
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px;">
+                <button onclick="resetStocksToDefault()" class="btn-danger" style="padding: 6px 10px; font-size: 0.75rem; border-radius: 4px; cursor: pointer;">↺ 기본 9종목 복원</button>
+                <button onclick="closeStockManageModal()" class="btn-secondary" style="padding: 6px 16px; font-size: 0.82rem; border-radius: 4px; cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent);">완료</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Data and Scripts -->
     <script src="philosophy_data.js?v=20260918_03"></script>
     <script src="iching_data.js?v=20260917_14"></script>
     <script src="iching_commentaries_data.js?v=20261016_01"></script>
-    <script src="script.js?v=20261016_02"></script>
+    <script src="script.js?v=20261016_04"></script>
 </body>
 </html>
 

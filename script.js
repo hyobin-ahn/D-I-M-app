@@ -439,13 +439,19 @@ async function initCalendar() {
 window.toggleStocks = function() {
     const grid = document.getElementById('stocks-grid');
     const btn = document.getElementById('stocks-toggle-btn');
+    const manageBtn = document.getElementById('stock-manage-btn');
+    const resetBtn = document.getElementById('stock-reset-btn');
     if (!grid || !btn) return;
     if (grid.style.display === 'none') {
         grid.style.display = 'grid';
         btn.classList.add('open');
+        if (manageBtn) manageBtn.style.display = 'inline-block';
+        if (resetBtn) resetBtn.style.display = 'inline-block';
     } else {
         grid.style.display = 'none';
         btn.classList.remove('open');
+        if (manageBtn) manageBtn.style.display = 'none';
+        if (resetBtn) resetBtn.style.display = 'none';
     }
 };
 
@@ -574,11 +580,13 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         return;
     }
 
-    const renderScholar = (label, data) => {
+    const renderScholar = (key, label, data) => {
         const hasData = data && typeof data === 'object';
         const original = (hasData && data.original) ? data.original.trim() : (typeof data === 'string' ? data.trim() : '');
         const translation = (hasData && data.translation) ? data.translation.trim() : '';
         const bookBadge = (hasData && data.book) ? `<span style="font-size:0.8em; color:var(--primary); font-weight:600; padding:2px 7px; background:rgba(56,189,248,0.12); border-radius:4px; border:1px solid rgba(56,189,248,0.25);">『${data.book}』</span>` : '';
+
+        const scholarId = `scholar-${index}-${lineIndex}-${key}`;
 
         // 원문이 없거나 '원문 미상' 등인 경우: 임의 해설을 일절 표시하지 않고 깔끔하게 비워둠
         const isOriginalEmpty = !original || original === '""' || original.includes('원문 미상') || original.includes('미상');
@@ -595,10 +603,13 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         }
 
         return `
-            <div class="saju-box" style="margin-bottom: 12px;">
+            <div class="saju-box" id="${scholarId}" style="margin-bottom: 12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
-                    ${bookBadge}
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        ${bookBadge}
+                        <button class="tts-btn" onclick="toggleTTS('${scholarId}')" id="tts-btn-${scholarId}" title="${label} 주석 읽기/정지" style="font-size:0.75rem; padding:2px 7px; border-radius:4px; background:transparent; border:1px solid var(--border); color:var(--text-primary); cursor:pointer;">🔊</button>
+                    </div>
                 </div>
                 <div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
                     <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
@@ -614,20 +625,28 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
 
     const renderKoreanScholars = (scholars) => {
         if (!scholars || !scholars.length) return '';
-        const listHtml = scholars.map(s => `
-            <div style="margin-bottom: 10px; padding: 10px 12px; background: rgba(0,0,0,0.16); border-radius: 6px; border-left: 3px solid #c084fc;">
-                <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe; margin-bottom: 4px;">${s.scholar}</div>
-                <div style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.92em; line-height: 1.6; margin-bottom: 4px;">${s.original}</div>
-                <div style="color: var(--text-secondary); font-size: 0.88em; line-height: 1.55;">${s.translation}</div>
-            </div>
-        `).join('');
+        const allKoreanId = `korean-all-${index}-${lineIndex}`;
+        const listHtml = scholars.map((s, idx) => {
+            const kScholarId = `korean-scholar-${index}-${lineIndex}-${idx}`;
+            return `
+                <div id="${kScholarId}" style="margin-bottom: 10px; padding: 10px 12px; background: rgba(0,0,0,0.16); border-radius: 6px; border-left: 3px solid #c084fc;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+                        <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe;">${s.scholar}</div>
+                        <button class="tts-btn" onclick="toggleTTS('${kScholarId}')" id="tts-btn-${kScholarId}" title="${s.scholar} 주석 읽기/정지" style="font-size:0.72rem; padding:1px 6px; border-radius:3px; background:transparent; color:#d8b4fe; border:1px solid rgba(168,85,247,0.35); cursor:pointer;">🔊</button>
+                    </div>
+                    <div style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.92em; line-height: 1.6; margin-bottom: 4px;">${s.original}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.88em; line-height: 1.55;">${s.translation}</div>
+                </div>
+            `;
+        }).join('');
 
         return `
             <details style="margin-top: 14px; background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; padding: 10px 12px;">
-                <summary style="cursor: pointer; font-weight: 600; color: #c084fc; font-size: 0.88em; user-select: none;">
-                    🇰🇷 한국 대표 역학자(조선 성리학자) 정본 주석 보기 (${scholars.length}인 수록)
+                <summary style="cursor: pointer; font-weight: 600; color: #c084fc; font-size: 0.88em; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+                    <span>🇰🇷 한국 대표 역학자(조선 성리학자) 정본 주석 보기 (${scholars.length}인 수록)</span>
+                    <button class="tts-btn" onclick="event.stopPropagation(); toggleTTS('${allKoreanId}')" id="tts-btn-${allKoreanId}" title="한국 학자 주석 전체 낭독" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 3px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe; cursor: pointer;">🔊 한국학자 전체 낭독</button>
                 </summary>
-                <div style="margin-top: 10px;">
+                <div id="${allKoreanId}" style="margin-top: 10px;">
                     ${listHtml}
                 </div>
             </details>
@@ -636,23 +655,31 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
 
     const renderScholars = (item) => {
         if (!item) return '';
+        const allScholarsId = `all-scholars-${index}-${lineIndex}`;
         return `
             <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-                <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
+                <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <div>
                         <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em;">[${item.title}] 7대 학자 정본 주석</h5>
                         <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
                     </div>
-                    <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">✓ 공인 정본 DB</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button class="nav-btn tts-btn" onclick="toggleTTS('${allScholarsId}')" id="tts-btn-${allScholarsId}" style="font-size:0.75rem; padding:3px 9px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:var(--primary); cursor:pointer;" title="7대 학자 주석 전체 연속 낭독">
+                            <span>🔊 전체 주석 낭독</span>
+                        </button>
+                        <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">✓ 공인 정본 DB</span>
+                    </div>
                 </div>
-                ${renderScholar('왕필 (王弼)', item.wangbi)}
-                ${renderScholar('공영달 (孔穎達)', item.kongyingda)}
-                ${renderScholar('소식 (蘇軾)', item.sushi)}
-                ${renderScholar('정이 (程頤)', item.chengyi)}
-                ${renderScholar('주희 (朱熹)', item.zhuxi)}
-                ${renderScholar('쌍호호씨 (胡炳文)', item.shuanghu)}
-                ${renderScholar('운봉호씨 (胡一桂)', item.yunfeng)}
-                ${renderKoreanScholars(item.korean_scholars)}
+                <div id="${allScholarsId}">
+                    ${renderScholar('wangbi', '왕필 (王弼)', item.wangbi)}
+                    ${renderScholar('kongyingda', '공영달 (孔穎達)', item.kongyingda)}
+                    ${renderScholar('sushi', '소식 (蘇軾)', item.sushi)}
+                    ${renderScholar('chengyi', '정이 (程頤)', item.chengyi)}
+                    ${renderScholar('zhuxi', '주희 (朱熹)', item.zhuxi)}
+                    ${renderScholar('shuanghu', '쌍호호씨 (胡炳文)', item.shuanghu)}
+                    ${renderScholar('yunfeng', '운봉호씨 (胡一桂)', item.yunfeng)}
+                    ${renderKoreanScholars(item.korean_scholars)}
+                </div>
             </div>
         `;
     };
@@ -1280,85 +1307,344 @@ async function initKospi(period = 'today') {
     }
 }
 
-async function initStocks(period = 'today') {
+const DEFAULT_STOCKS = [
+    { code: '005935', name: '삼성전자우', market: 'domestic', defaultPrice: '167,500', defaultChange: 8400, defaultRatio: 5.28 },
+    { code: '005930', name: '삼성전자', market: 'domestic', defaultPrice: '216,500', defaultChange: 6500, defaultRatio: 3.10 },
+    { code: 'TSLA.O', name: '테슬라', market: 'world', defaultPrice: '373.2000', defaultChange: 10.7600, defaultRatio: 2.97 },
+    { code: '0094M0', name: 'RISE 코리아밸류업위클리고정커버드콜', shortName: 'RISE 코리아밸...', market: 'domestic', defaultPrice: '14,235', defaultChange: 390, defaultRatio: 2.82 },
+    { code: 'SPCX.O', name: '스페이스X', market: 'world', defaultPrice: '152.4600', defaultChange: 3.8400, defaultRatio: 2.58 },
+    { code: '000660', name: 'SK하이닉스', market: 'domestic', defaultPrice: '1,288,000', defaultChange: 26000, defaultRatio: 2.06 },
+    { code: '489030', name: 'PLUS 고배당주위클리커버드콜', shortName: 'PLUS 고배당주...', market: 'domestic', defaultPrice: '6,115', defaultChange: 60, defaultRatio: 0.99 },
+    { code: 'GOOGL.O', name: '알파벳 A', market: 'world', defaultPrice: '349.6700', defaultChange: 0.4500, defaultRatio: 0.13 },
+    { code: 'SKHY.O', name: 'SK하이닉스(ADR)', shortName: 'SK하이닉스(A...', market: 'world', defaultPrice: '143.1600', defaultChange: -2.9500, defaultRatio: -2.02 }
+];
+
+let currentStocksList = [];
+const stockPriceCache = {}; // live price cache
+
+function getSafeId(code) {
+    return String(code).replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function loadSavedStocks() {
+    try {
+        const saved = localStorage.getItem('my_stocks_portfolio_v2');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to parse saved stocks:', e);
+    }
+    return JSON.parse(JSON.stringify(DEFAULT_STOCKS));
+}
+
+function saveCustomStocks(list) {
+    try {
+        localStorage.setItem('my_stocks_portfolio_v2', JSON.stringify(list));
+    } catch (e) {
+        console.error('Failed to save stocks:', e);
+    }
+}
+
+function renderStocksGrid() {
     const grid = document.getElementById('stocks-grid');
     if (!grid) return;
-
-    const stocks = [
-        { code: '005935', name: '삼성전자우', market: 'domestic', defaultPrice: '167,500', defaultChange: 8400, defaultRatio: 5.28 },
-        { code: '005930', name: '삼성전자', market: 'domestic', defaultPrice: '216,500', defaultChange: 6500, defaultRatio: 3.10 },
-        { code: 'TSLA.O', name: '테슬라', market: 'world', defaultPrice: '373.2000', defaultChange: 10.7600, defaultRatio: 2.97 },
-        { code: '0094M0', name: 'RISE 코리아밸류업위클리고정커버드콜', shortName: 'RISE 코리아밸...', market: 'domestic', defaultPrice: '14,235', defaultChange: 390, defaultRatio: 2.82 },
-        { code: 'SPCX.O', name: '스페이스X', market: 'world', defaultPrice: '152.4600', defaultChange: 3.8400, defaultRatio: 2.58 },
-        { code: '000660', name: 'SK하이닉스', market: 'domestic', defaultPrice: '1,288,000', defaultChange: 26000, defaultRatio: 2.06 },
-        { code: '489030', name: 'PLUS 고배당주위클리커버드콜', shortName: 'PLUS 고배당주...', market: 'domestic', defaultPrice: '6,115', defaultChange: 60, defaultRatio: 0.99 },
-        { code: 'GOOGL.O', name: '알파벳 A', market: 'world', defaultPrice: '349.6700', defaultChange: 0.4500, defaultRatio: 0.13 },
-        { code: 'SKHY.O', name: 'SK하이닉스(ADR)', shortName: 'SK하이닉스(A...', market: 'world', defaultPrice: '143.1600', defaultChange: -2.9500, defaultRatio: -2.02 }
-    ];
     
-    const getSafeId = (code) => code.replace(/[^a-zA-Z0-9]/g, '_');
-
-    // Only rebuild DOM if grid is empty or has loading placeholder
-    if (grid.children.length <= 1 || grid.querySelector('.loading') || grid.textContent.includes('불러오는 중')) {
-        grid.innerHTML = '';
-        for (const stock of stocks) {
-            const sid = getSafeId(stock.code);
-            const ratio = stock.defaultRatio;
-            const isUp = ratio > 0;
-            const isDown = ratio < 0;
-            const colorClass = isUp ? 'up-color' : (isDown ? 'down-color' : 'flat-color');
-            const sign = isUp ? '▲' : (isDown ? '▼' : '');
-            const initialChangeStr = `${sign} ${Math.abs(stock.defaultChange).toLocaleString()} (${ratio > 0 ? '+' : ''}${ratio}%)`;
-
-            const card = document.createElement('div');
-            card.className = 'stock-card';
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                    <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${stock.name}">${stock.shortName || stock.name}</div>
-                    <span style="font-size:0.65rem; color:var(--text-muted); margin-left:6px; flex-shrink:0;">${stock.market === 'world' ? 'USD' : 'KRW'}</span>
-                </div>
-                <div class="stock-price ${colorClass}" id="price-${sid}">${stock.defaultPrice}</div>
-                <div class="stock-change ${colorClass}" id="change-${sid}">${initialChangeStr}</div>
-            `;
-            grid.appendChild(card);
-        }
-    }
-    
-    // Live price update in background
-    for (const stock of stocks) {
+    grid.innerHTML = '';
+    currentStocksList.forEach((stock, index) => {
         const sid = getSafeId(stock.code);
-        try {
-            const res = await fetch(`/api/stock?code=${encodeURIComponent(stock.code)}&market=${stock.market}`);
-            if (!res.ok) continue;
-            const data = await res.json();
-            const info = (data.datas && data.datas[0]) ? data.datas[0] : (data.stockName ? data : null);
-            if (!info) continue;
-            
-            const price = info.closePrice || info.nowPrice;
-            const ratio = parseFloat(info.fluctuationsRatio || 0);
-            const change = info.compareToPreviousClosePrice;
-            
-            let colorClass = 'flat-color';
-            let sign = '';
-            if (ratio > 0) { colorClass = 'up-color'; sign = '▲'; }
-            else if (ratio < 0) { colorClass = 'down-color'; sign = '▼'; }
-            
-            const priceEl = document.getElementById(`price-${sid}`);
-            const changeEl = document.getElementById(`change-${sid}`);
-            if (priceEl && price) {
-                priceEl.textContent = price;
-                priceEl.className = `stock-price ${colorClass}`;
-            }
-            if (changeEl && change !== undefined) {
-                const changeNum = parseFloat(String(change).replace(/,/g, ''));
-                const formattedChange = isNaN(changeNum) ? change : Math.abs(changeNum).toLocaleString();
-                changeEl.textContent = `${sign} ${formattedChange} (${ratio > 0 ? '+' : ''}${ratio}%)`;
-                changeEl.className = `stock-change ${colorClass}`;
-            }
-        } catch (e) {
-            console.error(`Error updating ${stock.name}:`, e);
+        const cached = stockPriceCache[stock.code];
+        
+        let price = cached ? cached.price : (stock.defaultPrice || '-');
+        let ratio = cached ? cached.ratio : (stock.defaultRatio !== undefined ? stock.defaultRatio : 0);
+        let change = cached ? cached.change : (stock.defaultChange !== undefined ? stock.defaultChange : 0);
+        
+        const isUp = ratio > 0;
+        const isDown = ratio < 0;
+        const colorClass = isUp ? 'up-color' : (isDown ? 'down-color' : 'flat-color');
+        const sign = isUp ? '▲' : (isDown ? '▼' : '');
+        
+        let changeText = '-';
+        if (typeof change === 'number' || !isNaN(parseFloat(change))) {
+            const changeVal = parseFloat(String(change).replace(/,/g, ''));
+            changeText = `${sign} ${Math.abs(changeVal).toLocaleString()} (${ratio > 0 ? '+' : ''}${ratio}%)`;
+        } else if (change) {
+            changeText = `${sign} ${change} (${ratio > 0 ? '+' : ''}${ratio}%)`;
+        }
+        
+        const isWorld = stock.market === 'world' || stock.code.includes('.') || /^[A-Za-z]/.test(stock.code);
+        
+        const card = document.createElement('div');
+        card.className = 'stock-card';
+        card.setAttribute('draggable', 'true');
+        card.dataset.index = index;
+        card.dataset.code = stock.code;
+        
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 95px;" title="${stock.name}">${stock.shortName || stock.name}</div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <div class="stock-card-actions">
+                        <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, -1)" title="앞으로 이동">◀</button>
+                        <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, 1)" title="뒤로 이동">▶</button>
+                        <button class="stock-action-btn del" onclick="event.stopPropagation(); removeStockItem(${index})" title="종목 삭제">✕</button>
+                    </div>
+                    <span style="font-size:0.65rem; color:var(--text-muted); flex-shrink:0;">${isWorld ? 'USD' : 'KRW'}</span>
+                </div>
+            </div>
+            <div class="stock-price ${colorClass}" id="price-${sid}">${price}</div>
+            <div class="stock-change ${colorClass}" id="change-${sid}">${changeText}</div>
+        `;
+        
+        // Drag and Drop Events
+        card.addEventListener('dragstart', (e) => handleStockDragStart(e, index));
+        card.addEventListener('dragover', (e) => handleStockDragOver(e, card));
+        card.addEventListener('dragleave', (e) => handleStockDragLeave(e, card));
+        card.addEventListener('drop', (e) => handleStockDrop(e, index));
+        card.addEventListener('dragend', (e) => handleStockDragEnd(e));
+        
+        grid.appendChild(card);
+    });
+}
+
+// Drag & Drop Handlers
+let draggedStockIndex = null;
+
+function handleStockDragStart(e, index) {
+    draggedStockIndex = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    e.currentTarget.classList.add('dragging');
+}
+
+function handleStockDragOver(e, card) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    card.classList.add('drag-over');
+}
+
+function handleStockDragLeave(e, card) {
+    card.classList.remove('drag-over');
+}
+
+function handleStockDrop(e, targetIndex) {
+    e.preventDefault();
+    const allCards = document.querySelectorAll('.stock-card');
+    allCards.forEach(c => c.classList.remove('drag-over', 'dragging'));
+    
+    if (draggedStockIndex === null || draggedStockIndex === targetIndex) return;
+    
+    const moved = currentStocksList.splice(draggedStockIndex, 1)[0];
+    currentStocksList.splice(targetIndex, 0, moved);
+    draggedStockIndex = null;
+    
+    saveCustomStocks(currentStocksList);
+    renderStocksGrid();
+}
+
+function handleStockDragEnd(e) {
+    draggedStockIndex = null;
+    const allCards = document.querySelectorAll('.stock-card');
+    allCards.forEach(c => c.classList.remove('drag-over', 'dragging'));
+}
+
+// Move item by step (-1 or +1)
+window.moveStockItem = function(index, delta) {
+    const target = index + delta;
+    if (target < 0 || target >= currentStocksList.length) return;
+    const [moved] = currentStocksList.splice(index, 1);
+    currentStocksList.splice(target, 0, moved);
+    saveCustomStocks(currentStocksList);
+    renderStocksGrid();
+    if (document.getElementById('stock-modal-overlay')?.style.display === 'flex') {
+        renderStockManageList();
+    }
+};
+
+// Remove single stock item
+window.removeStockItem = function(index) {
+    const stock = currentStocksList[index];
+    if (!stock) return;
+    if (!confirm(`'${stock.name}' 종목을 관심 목록에서 삭제하시겠습니까?`)) return;
+    currentStocksList.splice(index, 1);
+    saveCustomStocks(currentStocksList);
+    renderStocksGrid();
+    if (document.getElementById('stock-modal-overlay')?.style.display === 'flex') {
+        renderStockManageList();
+    }
+};
+
+// Reset to default 9 stocks
+window.resetStocksToDefault = function() {
+    if (!confirm('기본 9개 보유 종목 및 원래 순서로 초기화하시겠습니까?')) return;
+    currentStocksList = JSON.parse(JSON.stringify(DEFAULT_STOCKS));
+    saveCustomStocks(currentStocksList);
+    renderStocksGrid();
+    fetchLivePricesForStocks(currentStocksList);
+    if (document.getElementById('stock-modal-overlay')?.style.display === 'flex') {
+        renderStockManageList();
+    }
+};
+
+// Open & Close Manage Modal
+window.openStockManageModal = function() {
+    const modal = document.getElementById('stock-modal-overlay');
+    if (!modal) return;
+    renderStockManageList();
+    modal.style.display = 'flex';
+};
+
+window.closeStockManageModal = function() {
+    const modal = document.getElementById('stock-modal-overlay');
+    if (modal) modal.style.display = 'none';
+};
+
+// Render List inside Manage Modal
+function renderStockManageList() {
+    const listEl = document.getElementById('stock-manage-list');
+    if (!listEl) return;
+    
+    if (currentStocksList.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px; font-size:0.85rem;">등록된 종목이 없습니다. 새 종목을 추가해보세요.</div>';
+        return;
+    }
+    
+    listEl.innerHTML = currentStocksList.map((stock, i) => {
+        const isWorld = stock.market === 'world' || stock.code.includes('.') || /^[A-Za-z]/.test(stock.code);
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px;">
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700; width:18px;">${i + 1}</span>
+                    <span style="font-weight:600; font-size:0.85rem; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width: 140px;" title="${stock.name}">${stock.shortName || stock.name}</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted);">(${stock.code})</span>
+                    <span style="font-size:0.65rem; padding:1px 5px; border-radius:3px; background:rgba(255,255,255,0.06); color:var(--text-secondary);">${isWorld ? 'USD' : 'KRW'}</span>
+                </div>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                    <button class="nav-btn" onclick="moveStockItem(${i}, -1)" ${i === 0 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 7px; font-size:0.72rem; border-radius:3px;" title="위로 이동">▲</button>
+                    <button class="nav-btn" onclick="moveStockItem(${i}, 1)" ${i === currentStocksList.length - 1 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 7px; font-size:0.72rem; border-radius:3px;" title="아래로 이동">▼</button>
+                    <button class="nav-btn" onclick="removeStockItem(${i})" style="padding:2px 7px; font-size:0.72rem; border-radius:3px; color:#f87171; border-color:rgba(248,113,113,0.3);" title="삭제">✕</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Add new stock from modal
+window.addNewStockFromModal = function() {
+    const nameInput = document.getElementById('new-stock-name');
+    const codeInput = document.getElementById('new-stock-code');
+    const marketRadios = document.getElementsByName('new-stock-market');
+    
+    if (!nameInput || !codeInput) return;
+    
+    const name = nameInput.value.trim();
+    let code = codeInput.value.trim();
+    
+    if (!name) {
+        alert('종목명을 입력해주세요.');
+        nameInput.focus();
+        return;
+    }
+    if (!code) {
+        alert('종목코드 또는 티커를 입력해주세요.');
+        codeInput.focus();
+        return;
+    }
+    
+    let market = 'domestic';
+    for (const r of marketRadios) {
+        if (r.checked) market = r.value;
+    }
+    
+    // Auto-formatting for world stocks: if market is world and user typed TSLA, change to TSLA.O unless dot already exists
+    if (market === 'world') {
+        code = code.toUpperCase();
+        if (!code.includes('.')) {
+            code = code + '.O';
         }
     }
+    
+    // Check duplicates
+    if (currentStocksList.some(s => s.code.toUpperCase() === code.toUpperCase())) {
+        alert(`이미 등록되어 있는 종목코드(${code})입니다.`);
+        return;
+    }
+    
+    const newStock = {
+        code: code,
+        name: name,
+        market: market,
+        defaultPrice: '-',
+        defaultChange: 0,
+        defaultRatio: 0
+    };
+    
+    currentStocksList.push(newStock);
+    saveCustomStocks(currentStocksList);
+    
+    // Clear inputs
+    nameInput.value = '';
+    codeInput.value = '';
+    
+    renderStocksGrid();
+    renderStockManageList();
+    
+    // Fetch live price for newly added stock
+    fetchSingleLivePrice(newStock);
+};
+
+// Fetch live price for a single stock and update DOM
+async function fetchSingleLivePrice(stock) {
+    const sid = getSafeId(stock.code);
+    try {
+        const res = await fetch(`/api/stock?code=${encodeURIComponent(stock.code)}&market=${stock.market}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const info = (data.datas && data.datas[0]) ? data.datas[0] : (data.stockName ? data : null);
+        if (!info) return;
+        
+        const price = info.closePrice || info.nowPrice;
+        const ratio = parseFloat(info.fluctuationsRatio || 0);
+        const change = info.compareToPreviousClosePrice;
+        
+        stockPriceCache[stock.code] = { price, ratio, change };
+        
+        let colorClass = 'flat-color';
+        let sign = '';
+        if (ratio > 0) { colorClass = 'up-color'; sign = '▲'; }
+        else if (ratio < 0) { colorClass = 'down-color'; sign = '▼'; }
+        
+        const priceEl = document.getElementById(`price-${sid}`);
+        const changeEl = document.getElementById(`change-${sid}`);
+        if (priceEl && price) {
+            priceEl.textContent = price;
+            priceEl.className = `stock-price ${colorClass}`;
+        }
+        if (changeEl && change !== undefined) {
+            const changeNum = parseFloat(String(change).replace(/,/g, ''));
+            const formattedChange = isNaN(changeNum) ? change : Math.abs(changeNum).toLocaleString();
+            changeEl.textContent = `${sign} ${formattedChange} (${ratio > 0 ? '+' : ''}${ratio}%)`;
+            changeEl.className = `stock-change ${colorClass}`;
+        }
+    } catch (e) {
+        console.error(`Live price update failed for ${stock.name}:`, e);
+    }
+}
+
+// Background batch fetcher
+async function fetchLivePricesForStocks(stocks) {
+    for (const stock of stocks) {
+        await fetchSingleLivePrice(stock);
+    }
+}
+
+async function initStocks(period = 'today') {
+    currentStocksList = loadSavedStocks();
+    renderStocksGrid();
+    fetchLivePricesForStocks(currentStocksList);
 }
 
 async function drawHistoryChart(canvasId, code, period, currentPrice, colorHex) {
@@ -1469,14 +1755,36 @@ window.toggleTTS = function(section) {
     const synth = window.speechSynthesis;
     const btn = document.getElementById(`tts-btn-${section}`);
     const pauseBtn = document.getElementById(`tts-pause-${section}`);
+
+    function resetBtnText(b) {
+        if (!b) return;
+        b.classList.remove('playing');
+        if (b.dataset.origText) {
+            b.innerHTML = b.dataset.origText;
+        } else {
+            b.textContent = '🔊';
+        }
+    }
+
+    function setBtnPlayingText(b) {
+        if (!b) return;
+        if (!b.dataset.origText) {
+            b.dataset.origText = b.innerHTML;
+        }
+        b.classList.add('playing');
+        if (b.dataset.origText.includes('전체 주석')) {
+            b.innerHTML = '<span>⏹️ 낭독 중지</span>';
+        } else if (b.dataset.origText.includes('전체 낭독')) {
+            b.innerHTML = '⏹️ 낭독 중지';
+        } else {
+            b.textContent = '⏹️';
+        }
+    }
     
     // 이미 현재 섹션을 읽고 있다면 중지
     if (synth.speaking && currentPlayingSection === section) {
         synth.cancel();
-        if (btn) {
-            btn.textContent = '🔊';
-            btn.classList.remove('playing');
-        }
+        resetBtnText(btn);
         if (pauseBtn) pauseBtn.style.display = 'none';
         currentPlayingSection = null;
         return;
@@ -1488,10 +1796,7 @@ window.toggleTTS = function(section) {
         if (currentPlayingSection) {
             const oldBtn = document.getElementById(`tts-btn-${currentPlayingSection}`);
             const oldPauseBtn = document.getElementById(`tts-pause-${currentPlayingSection}`);
-            if (oldBtn) {
-                oldBtn.textContent = '🔊';
-                oldBtn.classList.remove('playing');
-            }
+            resetBtnText(oldBtn);
             if (oldPauseBtn) oldPauseBtn.style.display = 'none';
         }
     }
@@ -1510,8 +1815,9 @@ window.toggleTTS = function(section) {
         // 블록 요소(문단, 제목 등)가 끝날 때 마침표와 공백을 추가하여 TTS가 자연스럽게 띄어 읽도록 유도
         let htmlStr = clone.innerHTML;
         htmlStr = htmlStr.replace(/<\/p>/gi, '. </p>');
-        htmlStr = htmlStr.replace(/<\/h[1-6]>/gi, '. </h5>'); // Replace with a generic closing tag just in case
+        htmlStr = htmlStr.replace(/<\/h[1-6]>/gi, '. </h5>');
         htmlStr = htmlStr.replace(/<br\s*\/?>/gi, '. ');
+        htmlStr = htmlStr.replace(/<\/div>/gi, '.\n</div>');
         clone.innerHTML = htmlStr;
         
         textToRead = clone.textContent || '';
@@ -1546,33 +1852,23 @@ window.toggleTTS = function(section) {
     currentUtterance.rate = window.ttsRate || 1.0;
     
     currentUtterance.onend = () => {
-        if (btn) {
-            btn.textContent = '🔊';
-            btn.classList.remove('playing');
-        }
+        resetBtnText(btn);
         if (pauseBtn) pauseBtn.style.display = 'none';
         currentPlayingSection = null;
     };
     
     currentUtterance.onerror = (e) => {
         console.error('TTS Error:', e);
-        if (btn) {
-            btn.textContent = '🔊';
-            btn.classList.remove('playing');
-        }
+        resetBtnText(btn);
         if (pauseBtn) pauseBtn.style.display = 'none';
         currentPlayingSection = null;
     };
     
-    if (btn) {
-        btn.textContent = '⏹️';
-        btn.classList.add('playing');
-    }
+    setBtnPlayingText(btn);
     if (pauseBtn) {
         pauseBtn.style.display = 'inline-flex';
         pauseBtn.textContent = '⏸️';
     }
-    
     currentPlayingSection = section;
     synth.speak(currentUtterance);
 };
