@@ -532,10 +532,138 @@ button { font-family: var(--font); }
   cursor: pointer;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
 }
-.tts-btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.2); }
-.tts-btn.active { border-color: var(--accent); color: var(--accent-light); }
+.tts-btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+.tts-btn.active, .tts-btn.playing { border-color: #f87171; color: #f87171; background: rgba(239,68,68,0.12); }
+
+/* 텍스트 라벨이 있는 전체 낭독 전용 버튼 */
+.tts-full-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 30px !important;
+  width: auto !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  padding: 0 12px !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  border-radius: 6px !important;
+  color: #38bdf8 !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all var(--t-fast) !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+}
+.tts-full-btn:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  color: #7dd3fc !important;
+}
+.tts-full-btn.playing {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #f87171 !important;
+}
+.tts-full-btn.purple {
+  background: rgba(168, 85, 247, 0.12) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  color: #c084fc !important;
+}
+.tts-full-btn.purple:hover {
+  background: rgba(168, 85, 247, 0.22) !important;
+  border-color: rgba(168, 85, 247, 0.55) !important;
+  color: #e9d5ff !important;
+}
+.tts-full-btn.purple.playing {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #f87171 !important;
+}
+
+/* 주역 주석 헤더 & 툴바 */
+.commentary-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+.commentary-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.commentary-title-group {
+  flex: 1;
+  min-width: 220px;
+}
+.commentary-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.commentary-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.db-badge {
+  font-size: 0.72rem;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 4px 9px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.commentary-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.commentary-toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scholar-count-badge {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.commentary-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.korean-scholars-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
 /* ── 11. Philosophy ────────────────────────────────────────── */
 .philosophy-section {

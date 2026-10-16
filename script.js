@@ -663,16 +663,16 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
                     <p class="saju-box-title" style="margin:0; font-weight:700;">${label}</p>
                     <div style="display:flex; align-items:center; gap:6px;">
                         ${bookBadge}
-                        <button class="tts-btn" onclick="toggleTTS('${scholarId}')" id="tts-btn-${scholarId}" title="${label} 주석 읽기/정지" style="font-size:0.75rem; padding:2px 7px; border-radius:4px; background:transparent; border:1px solid var(--border); color:var(--text-primary); cursor:pointer;">🔊</button>
+                        <button class="tts-btn" onclick="toggleTTS('${scholarId}')" id="tts-btn-${scholarId}" title="${label} 주석 읽기/정지">🔊</button>
                     </div>
                 </div>
                 <div style="background: rgba(0,0,0,0.18); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--primary);">
-                    <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
+                    <div class="tts-ignore" style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;">[한문 정본 原文]</div>
                     <p style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.95em; line-height: 1.65; letter-spacing: 0.03em; margin: 0;">${original}</p>
                 </div>
                 ${translation ? `
                 <div style="padding-top: 4px;">
-                    <div style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
+                    <div class="tts-ignore" style="font-size: 0.72em; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">[정통 번역]</div>
                     <p style="line-height: 1.65; color: var(--text-secondary); margin: 0; font-size: 0.92em;">${translation}</p>
                 </div>` : ''}
             </div>`;
@@ -687,7 +687,7 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
                 <div id="${kScholarId}" style="margin-bottom: 10px; padding: 10px 12px; background: rgba(0,0,0,0.16); border-radius: 6px; border-left: 3px solid #c084fc;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; gap: 8px;">
                         <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe; flex: 1; min-width: 0;">${s.scholar}</div>
-                        <button class="tts-btn" onclick="toggleTTS('${kScholarId}')" id="tts-btn-${kScholarId}" title="${s.scholar} 주석 읽기/정지" style="font-size:0.72rem; padding:1px 6px; border-radius:3px; background:transparent; color:#d8b4fe; border:1px solid rgba(168,85,247,0.35); cursor:pointer; flex-shrink: 0;">🔊</button>
+                        <button class="tts-btn" onclick="toggleTTS('${kScholarId}')" id="tts-btn-${kScholarId}" title="${s.scholar} 주석 읽기/정지" style="color:#d8b4fe; border-color:rgba(168,85,247,0.35);">🔊</button>
                     </div>
                     <div style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.92em; line-height: 1.6; margin-bottom: 4px;">${s.original}</div>
                     <div style="color: var(--text-secondary); font-size: 0.88em; line-height: 1.55;">${s.translation}</div>
@@ -701,8 +701,9 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
                     <span>🇰🇷 한국 대표 역학자(조선 성리학자) 정본 주석 보기 (${scholars.length}인 수록)</span>
                 </summary>
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(168,85,247,0.25);">
-                    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px;">
-                        <button class="tts-btn" onclick="toggleTTS('${allKoreanId}')" id="tts-btn-${allKoreanId}" title="한국 학자 주석 전체 낭독" style="font-size: 0.75rem; padding: 3px 10px; border-radius: 4px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                    <div class="korean-scholars-toolbar">
+                        <span style="font-size: 0.78rem; color: #d8b4fe; font-weight: 500;">조선 성리학 8대 학자 주석</span>
+                        <button class="tts-full-btn purple" onclick="toggleTTS('${allKoreanId}')" id="tts-btn-${allKoreanId}" title="한국 학자 주석 전체 낭독">
                             <span>🔊 한국학자 주석 낭독</span>
                         </button>
                     </div>
@@ -719,18 +720,25 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const allScholarsId = `all-scholars-${index}-${lineIndex}`;
         return `
             <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-                <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-                        <div style="flex:1; min-width:0;">
-                            <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em; font-weight:700;">[${item.title}] 7대 학자 정본 주석</h5>
-                            <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
+                <div class="commentary-header">
+                    <div class="commentary-title-row">
+                        <div class="commentary-title-group">
+                            <h5 class="commentary-title">[${item.title}] 7대 학자 정본 주석</h5>
+                            <p class="commentary-subtitle">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
                         </div>
-                        <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 3px 8px; border-radius: 12px; font-weight: 600; white-space:nowrap; flex-shrink:0;">✓ 공인 정본 DB</span>
+                        <span class="db-badge">✓ 공인 정본 DB</span>
                     </div>
-                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px;">
-                        <button class="nav-btn tts-btn" onclick="toggleTTS('${allScholarsId}')" id="tts-btn-${allScholarsId}" style="font-size:0.75rem; padding:4px 11px; border-radius:4px; display:inline-flex; align-items:center; gap:5px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:var(--primary); cursor:pointer; font-weight:500;" title="7대 학자 주석 전체 연속 낭독">
-                            <span>🔊 전체 주석 낭독</span>
-                        </button>
+                    <div class="commentary-toolbar">
+                        <div class="commentary-toolbar-info">
+                            <span class="scholar-count-badge">📚 송·명·청 7대 역학자 전권 수록</span>
+                        </div>
+                        <div class="commentary-toolbar-actions">
+                            <button class="tts-btn tts-speed-btn" onclick="changeTTSSpeed()" title="낭독 속도 조절">${window.ttsRate ? window.ttsRate.toFixed(2) : '1.00'}x</button>
+                            <button class="tts-full-btn" onclick="toggleTTS('${allScholarsId}')" id="tts-btn-${allScholarsId}" title="7대 학자 주석 전체 연속 낭독">
+                                <span>🔊 전체 주석 낭독</span>
+                            </button>
+                            <button class="tts-btn" onclick="pauseTTS()" id="tts-pause-${allScholarsId}" title="일시정지/재개" style="display: none;">⏸️</button>
+                        </div>
                     </div>
                 </div>
                 <div id="${allScholarsId}">
@@ -1109,6 +1117,15 @@ function toggleDeleuzeOverview() {
     }
 }
 
+function formatPhilContent(text) {
+    if (!text) return '';
+    return text
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="tts-ignore" style="color:var(--primary); text-decoration:underline;">$1 ↗</a>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-primary); font-weight:700;">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+}
+
 function initPhilosophy(forceIndex = null) {
     const container = document.getElementById('philosophy-content');
     const gridContainer = document.getElementById('philosophy-chapter-grid');
@@ -1205,7 +1222,7 @@ function initPhilosophy(forceIndex = null) {
         container.innerHTML = `
             ${chapterBadge}
             <div class="text-lg text-bold text-accent" style="margin: 10px 0 14px;">${displayTitle}</div>
-            <div class="philosophy-desc text-body">${item.content.replace(/\n/g, '<br>')}</div>
+            <div class="philosophy-desc text-body">${formatPhilContent(item.content)}</div>
             ${sourceBadge}
         `;
     }
@@ -1325,7 +1342,7 @@ window.showPhilChapterPreview = function(index, btnEl = null) {
                 <button onclick="showPhilChapterPreview(${nextIdx})" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-primary); cursor:pointer; font-size:0.9rem; padding:4px 10px; border-radius:4px; transition:background 0.2s;">▶</button>
             </div>
             <h4 style="margin: 0 0 8px 0; color: var(--accent-light); font-size: 1.05rem;">${item.title}</h4>
-            <div class="text-body" style="font-size: 0.95rem; line-height: 1.6;">${item.content.replace(/\n/g, '<br>')}</div>
+            <div class="text-body" style="font-size: 0.95rem; line-height: 1.6;">${formatPhilContent(item.content)}</div>
         `;
         previewEl.style.display = 'block';
     }
@@ -1886,6 +1903,10 @@ window.toggleTTS = function(section) {
         b.classList.remove('playing');
         if (b.dataset.origText) {
             b.innerHTML = b.dataset.origText;
+        } else if (b.classList.contains('purple')) {
+            b.innerHTML = '<span>🔊 한국학자 주석 낭독</span>';
+        } else if (b.classList.contains('tts-full-btn')) {
+            b.innerHTML = '<span>🔊 전체 주석 낭독</span>';
         } else {
             b.textContent = '🔊';
         }
@@ -1897,10 +1918,8 @@ window.toggleTTS = function(section) {
             b.dataset.origText = b.innerHTML;
         }
         b.classList.add('playing');
-        if (b.dataset.origText.includes('전체 주석')) {
+        if (b.classList.contains('tts-full-btn') || (b.dataset.origText && (b.dataset.origText.includes('주석 낭독') || b.dataset.origText.includes('전체 낭독') || b.dataset.origText.includes('전체 주석')))) {
             b.innerHTML = '<span>⏹️ 낭독 중지</span>';
-        } else if (b.dataset.origText.includes('전체 낭독')) {
-            b.innerHTML = '⏹️ 낭독 중지';
         } else {
             b.textContent = '⏹️';
         }
@@ -1934,7 +1953,7 @@ window.toggleTTS = function(section) {
     if (contentEl) {
         const clone = contentEl.cloneNode(true);
         // 배지나 불필요한 라벨, 버튼, 네비게이션 날짜 제거
-        const ignores = clone.querySelectorAll('.label-badge, .tts-ignore, button, select, input, .nav-date, .tts-speed-btn');
+        const ignores = clone.querySelectorAll('.label-badge, .tts-ignore, button, select, input, .nav-date, .tts-speed-btn, details summary, .korean-scholars-toolbar');
         ignores.forEach(b => b.remove());
         
         // 블록 요소(문단, 제목 등)가 끝날 때 마침표와 공백을 추가하여 TTS가 자연스럽게 띄어 읽도록 유도
@@ -1961,6 +1980,21 @@ window.toggleTTS = function(section) {
                 textToRead = textToRead.substring(part2Start);
             }
         }
+        
+        // 1. URL 제거 (TTS가 영어 URL 주소를 알파벳 하나씩 읽는 것 방지)
+        textToRead = textToRead.replace(/https?:\/\/[^\s\)]+/g, '');
+        // 2. 마크다운 링크 [제목](URL) -> 제목
+        textToRead = textToRead.replace(/\[([^\]]+)\]\([^\)]*\)/g, '$1');
+        // 3. 마크다운 볼드/이탤릭 기호 제거 (**강조**, *기울임*, __강조__)
+        textToRead = textToRead.replace(/\*\*(.*?)\*\*/g, '$1');
+        textToRead = textToRead.replace(/\*(.*?)\*/g, '$1');
+        textToRead = textToRead.replace(/__([^_]+)__/g, '$1');
+        textToRead = textToRead.replace(/_([^_]+)_/g, '$1');
+        textToRead = textToRead.replace(/[`#~*]/g, '');
+        // 4. 대괄호 및 특수괄호 [ ], 【 】, 《 》 기호 읽기 완화 (기호 호명 방지)
+        textToRead = textToRead.replace(/[\[\]【】《》]/g, ' ');
+        // 5. 한자 병기 중복 호명 완화: 예) 왕필 (王弼) -> 왕필, 주희 (朱熹) -> 주희
+        textToRead = textToRead.replace(/([가-힣]{2,4})\s*\([一-龥]+\)/g, '$1');
         
         // 이모지 및 특수 기호 완벽 제거
         textToRead = textToRead.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
