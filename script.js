@@ -483,17 +483,30 @@ window.toggleStocks = function() {
     const btn = document.getElementById('stocks-toggle-btn');
     const manageBtn = document.getElementById('stock-manage-btn');
     const resetBtn = document.getElementById('stock-reset-btn');
+    const liveBadge = document.getElementById('stock-live-badge');
+    const timeEl = document.getElementById('stock-last-updated');
+    const refreshBtn = document.getElementById('stock-refresh-btn');
     if (!grid || !btn) return;
     if (grid.style.display === 'none') {
         grid.style.display = 'grid';
         btn.classList.add('open');
         if (manageBtn) manageBtn.style.display = 'inline-block';
         if (resetBtn) resetBtn.style.display = 'inline-block';
+        if (liveBadge) liveBadge.style.display = 'inline-flex';
+        if (timeEl) timeEl.style.display = 'inline-block';
+        if (refreshBtn) refreshBtn.style.display = 'inline-block';
+        if (typeof refreshAllLivePrices === 'function') {
+            refreshAllLivePrices(true);
+            startStockLivePolling();
+        }
     } else {
         grid.style.display = 'none';
         btn.classList.remove('open');
         if (manageBtn) manageBtn.style.display = 'none';
         if (resetBtn) resetBtn.style.display = 'none';
+        if (liveBadge) liveBadge.style.display = 'none';
+        if (timeEl) timeEl.style.display = 'none';
+        if (refreshBtn) refreshBtn.style.display = 'none';
     }
 };
 
@@ -1361,12 +1374,12 @@ const DEFAULT_STOCKS = [
     { code: '005935', name: '삼성전자우', market: 'domestic', defaultPrice: '167,500', defaultChange: 8400, defaultRatio: 5.28 },
     { code: '005930', name: '삼성전자', market: 'domestic', defaultPrice: '216,500', defaultChange: 6500, defaultRatio: 3.10 },
     { code: 'TSLA.O', name: '테슬라', market: 'world', defaultPrice: '373.2000', defaultChange: 10.7600, defaultRatio: 2.97 },
-    { code: '0094M0', name: 'RISE 코리아밸류업위클리고정커버드콜', shortName: 'RISE 코리아밸...', market: 'domestic', defaultPrice: '14,235', defaultChange: 390, defaultRatio: 2.82 },
+    { code: '0094M0', name: 'RISE 코리아밸류업위클리고정커버드콜', market: 'domestic', defaultPrice: '14,235', defaultChange: 390, defaultRatio: 2.82 },
     { code: 'SPCX.O', name: '스페이스X', market: 'world', defaultPrice: '152.4600', defaultChange: 3.8400, defaultRatio: 2.58 },
     { code: '000660', name: 'SK하이닉스', market: 'domestic', defaultPrice: '1,288,000', defaultChange: 26000, defaultRatio: 2.06 },
-    { code: '489030', name: 'PLUS 고배당주위클리커버드콜', shortName: 'PLUS 고배당주...', market: 'domestic', defaultPrice: '6,115', defaultChange: 60, defaultRatio: 0.99 },
+    { code: '489030', name: 'PLUS 고배당주위클리커버드콜', market: 'domestic', defaultPrice: '6,115', defaultChange: 60, defaultRatio: 0.99 },
     { code: 'GOOGL.O', name: '알파벳 A', market: 'world', defaultPrice: '349.6700', defaultChange: 0.4500, defaultRatio: 0.13 },
-    { code: 'SKHY.O', name: 'SK하이닉스(ADR)', shortName: 'SK하이닉스(A...', market: 'world', defaultPrice: '143.1600', defaultChange: -2.9500, defaultRatio: -2.02 }
+    { code: 'SKHY.O', name: 'SK하이닉스(ADR)', market: 'world', defaultPrice: '143.1600', defaultChange: -2.9500, defaultRatio: -2.02 }
 ];
 
 let currentStocksList = [];
@@ -1380,8 +1393,19 @@ function loadSavedStocks() {
     try {
         const saved = localStorage.getItem('my_stocks_portfolio_v2');
         if (saved) {
-            const parsed = JSON.parse(saved);
+            let parsed = JSON.parse(saved);
             if (Array.isArray(parsed) && parsed.length > 0) {
+                // 이전 저장분에서 말줄임표(...)가 포함된 종목명을 정식 명칭으로 자동 보정
+                parsed = parsed.map(item => {
+                    const def = DEFAULT_STOCKS.find(d => d.code === item.code);
+                    if (def) {
+                        return { ...item, name: def.name, shortName: undefined };
+                    }
+                    if (item.shortName && item.shortName.endsWith('...')) {
+                        delete item.shortName;
+                    }
+                    return item;
+                });
                 return parsed;
             }
         }
@@ -1434,8 +1458,8 @@ function renderStocksGrid() {
         card.dataset.code = stock.code;
         
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:4px;">
-                <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0;" title="${stock.name}">${stock.shortName || stock.name}</div>
+            <div class="stock-card-header">
+                <div class="stock-name" title="${stock.name}">${stock.name}</div>
                 <div class="stock-card-actions">
                     <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, -1)" title="앞으로 이동">◀</button>
                     <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, 1)" title="뒤로 이동">▶</button>
@@ -1532,7 +1556,7 @@ window.resetStocksToDefault = function() {
     currentStocksList = JSON.parse(JSON.stringify(DEFAULT_STOCKS));
     saveCustomStocks(currentStocksList);
     renderStocksGrid();
-    fetchLivePricesForStocks(currentStocksList);
+    refreshAllLivePrices(true);
     if (document.getElementById('stock-modal-overlay')?.style.display === 'flex') {
         renderStockManageList();
     }
@@ -1564,12 +1588,12 @@ function renderStockManageList() {
     listEl.innerHTML = currentStocksList.map((stock, i) => {
         const isWorld = stock.market === 'world' || stock.code.includes('.') || /^[A-Za-z]/.test(stock.code);
         return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px;">
-                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700; width:18px;">${i + 1}</span>
-                    <span style="font-weight:600; font-size:0.85rem; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width: 140px;" title="${stock.name}">${stock.shortName || stock.name}</span>
-                    <span style="font-size:0.72rem; color:var(--text-muted);">(${stock.code})</span>
-                    <span style="font-size:0.65rem; padding:1px 5px; border-radius:3px; background:rgba(255,255,255,0.06); color:var(--text-secondary);">${isWorld ? 'USD' : 'KRW'}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden; flex:1; min-width:0;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700; width:18px; flex-shrink:0;">${i + 1}</span>
+                    <span style="font-weight:600; font-size:0.85rem; color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; flex:1; min-width:0;" title="${stock.name}">${stock.name}</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted); flex-shrink:0;">(${stock.code})</span>
+                    <span style="font-size:0.65rem; padding:1px 5px; border-radius:3px; background:rgba(255,255,255,0.06); color:var(--text-secondary); flex-shrink:0;">${isWorld ? 'USD' : 'KRW'}</span>
                 </div>
                 <div style="display:flex; gap:4px; flex-shrink:0;">
                     <button class="nav-btn" onclick="moveStockItem(${i}, -1)" ${i === 0 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 7px; font-size:0.72rem; border-radius:3px;" title="위로 이동">▲</button>
@@ -1649,7 +1673,7 @@ window.addNewStockFromModal = function() {
 async function fetchSingleLivePrice(stock) {
     const sid = getSafeId(stock.code);
     try {
-        const res = await fetch(`/api/stock?code=${encodeURIComponent(stock.code)}&market=${stock.market}`);
+        const res = await fetch(`/api/stock?code=${encodeURIComponent(stock.code)}&market=${stock.market}&_t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
         const info = (data.datas && data.datas[0]) ? data.datas[0] : (data.stockName ? data : null);
@@ -1659,6 +1683,7 @@ async function fetchSingleLivePrice(stock) {
         const ratio = parseFloat(info.fluctuationsRatio || 0);
         const change = info.compareToPreviousClosePrice;
         
+        const oldPrice = stockPriceCache[stock.code]?.price;
         stockPriceCache[stock.code] = { price, ratio, change };
         
         let colorClass = 'flat-color';
@@ -1666,11 +1691,19 @@ async function fetchSingleLivePrice(stock) {
         if (ratio > 0) { colorClass = 'up-color'; sign = '▲'; }
         else if (ratio < 0) { colorClass = 'down-color'; sign = '▼'; }
         
+        const isWorld = stock.market === 'world' || stock.code.includes('.') || /^[A-Za-z]/.test(stock.code);
+        
         const priceEl = document.getElementById(`price-${sid}`);
         const changeEl = document.getElementById(`change-${sid}`);
         if (priceEl && price) {
-            priceEl.textContent = price;
+            priceEl.innerHTML = `${price} <span style="font-size:0.65rem; font-weight:normal; color:var(--text-muted); margin-left:2px;">${isWorld ? 'USD' : 'KRW'}</span>`;
             priceEl.className = `stock-price ${colorClass}`;
+            
+            // 실시간 가격 변동 시 부드러운 펄스 애니메이션
+            if (oldPrice && oldPrice !== price) {
+                priceEl.classList.add('price-flash');
+                setTimeout(() => priceEl.classList.remove('price-flash'), 800);
+            }
         }
         if (changeEl && change !== undefined) {
             const changeNum = parseFloat(String(change).replace(/,/g, ''));
@@ -1683,17 +1716,60 @@ async function fetchSingleLivePrice(stock) {
     }
 }
 
-// Background batch fetcher
-async function fetchLivePricesForStocks(stocks) {
-    for (const stock of stocks) {
-        await fetchSingleLivePrice(stock);
+// 실시간 시세 일괄 병렬 갱신 함수
+let stockLivePollingTimer = null;
+
+window.refreshAllLivePrices = async function(force = false) {
+    if (!force && document.hidden) return; // 탭 비활성화 시 트래픽 절약
+    
+    const refreshBtn = document.getElementById('stock-refresh-btn');
+    if (refreshBtn && force) {
+        refreshBtn.classList.add('spinning');
     }
-}
+    
+    try {
+        // KOSPI와 모든 관심 종목을 동시에 병렬(Parallel)로 실시간 조회
+        await Promise.allSettled([
+            initKospi('today'),
+            ...currentStocksList.map(stock => fetchSingleLivePrice(stock))
+        ]);
+        
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const timeEl = document.getElementById('stock-last-updated');
+        if (timeEl) {
+            timeEl.textContent = `${timeStr} 갱신`;
+            timeEl.style.display = 'inline-block';
+        }
+    } catch (err) {
+        console.warn('Real-time stock refresh error:', err);
+    } finally {
+        if (refreshBtn && force) {
+            setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+        }
+    }
+};
+
+window.startStockLivePolling = function() {
+    if (stockLivePollingTimer) clearInterval(stockLivePollingTimer);
+    // 8초 주기로 실시간 시세 자동 갱신
+    stockLivePollingTimer = setInterval(() => {
+        refreshAllLivePrices(false);
+    }, 8000);
+};
+
+// 탭으로 복귀했을 때 즉시 최신 실시간 시세 갱신
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        refreshAllLivePrices(true);
+    }
+});
 
 async function initStocks(period = 'today') {
     currentStocksList = loadSavedStocks();
     renderStocksGrid();
-    fetchLivePricesForStocks(currentStocksList);
+    refreshAllLivePrices(true);
+    startStockLivePolling();
 }
 
 async function drawHistoryChart(canvasId, code, period, currentPrice, colorHex) {

@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title></title>
-    <link rel="stylesheet" href="styles.css?v=20261016_05">
+    <link rel="stylesheet" href="styles.css?v=20261016_06">
     <!-- iCal parser -->
     <script src="ical.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
@@ -292,8 +292,11 @@
                     <div style="text-align:center; color: var(--text-secondary); padding: 10px;">코스피 정보 불러오는 중...</div>
                 </div>
                 
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
                     <button onclick="toggleStocks()" id="stocks-toggle-btn" class="nav-btn toggle-btn" title="접기/펼치기"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="chevron-icon"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+                    <span id="stock-live-badge" class="stock-live-badge" style="display: none;"><span class="live-pulse-dot"></span> 실시간</span>
+                    <span id="stock-last-updated" style="font-size: 0.72rem; color: var(--text-muted); display: none;"></span>
+                    <button onclick="refreshAllLivePrices(true)" id="stock-refresh-btn" class="nav-btn" style="padding: 4px 8px; font-size: 0.76rem; border-radius: 4px; display: none; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;" title="실시간 시세 즉시 새로고침">🔄 새로고침</button>
                     <button onclick="openStockManageModal()" id="stock-manage-btn" class="nav-btn" style="padding: 4px 10px; font-size: 0.78rem; border-radius: 4px; display: none; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-primary); cursor: pointer;" title="종목 추가 및 순서 관리">⚙️ 종목 관리</button>
                     <button onclick="resetStocksToDefault()" id="stock-reset-btn" class="nav-btn" style="padding: 4px 8px; font-size: 0.78rem; border-radius: 4px; display: none; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;" title="기본 종목으로 초기화">↺ 초기화</button>
                 </div>
@@ -500,7 +503,7 @@
     <script src="philosophy_data.js?v=20260918_03"></script>
     <script src="iching_data.js?v=20260917_14"></script>
     <script src="iching_commentaries_data.js?v=20261016_01"></script>
-    <script src="script.js?v=20261016_05"></script>
+    <script src="script.js?v=20261016_06"></script>
 </body>
 </html>
 
