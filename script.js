@@ -237,7 +237,7 @@ async function initCalendar() {
     let errorHtml = '';
 
     try {
-        const response = await fetch('/api/calendar');
+        const response = await fetch('/api/calendar?_t=' + Date.now());
         if (!response.ok) {
             throw new Error(`HTTP fetch 실패 (상태 코드: ${response.status}) - 로컬 서버 환경인지 확인해주세요.`);
         }
@@ -250,13 +250,9 @@ async function initCalendar() {
         const todayEnd = new Date(todayStart);
         todayEnd.setDate(todayEnd.getDate() + 1);
         
-        const dayOfWeek = now.getDay();
-        const diffToMonday = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diffToMonday);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(endOfWeek.getDate() + 7);
-        const endOfNextWeek = new Date(endOfWeek);
-        endOfNextWeek.setDate(endOfNextWeek.getDate() + 7);
+        // 35일 앞까지 다가오는 일정 표시 (이번 달 및 다음 달 일정 포함)
+        const futureLimit = new Date(todayStart);
+        futureLimit.setDate(futureLimit.getDate() + 35);
 
         let upcomingEvents = [];
         let displayEvents = [];
@@ -268,61 +264,104 @@ async function initCalendar() {
             const comp = new ICAL.Component(jcalData);
             const vevents = comp.getAllSubcomponents('vevent');
             
+            // UID 기준으로 마스터 일정과 RECURRENCE-ID 예외 일정(날짜 변경/내용 수정/삭제) 그룹화
+            const byUid = {};
             vevents.forEach(vevent => {
-                const event = new ICAL.Event(vevent);
-                if (event.isRecurring()) {
-                    try {
-                        const iter = event.iterator();
-                        let next;
-                        let i = 0;
-                        while ((next = iter.next()) && i < 1000) {
-                            i++;
-                            const startJS = next.toJSDate();
-                            if (startJS >= endOfNextWeek) break;
-                            
-                            let endJS = null;
-                            if (event.endDate) {
-                                const duration = event.endDate.subtractDateTz(event.startDate);
-                                const nextEnd = next.clone();
-                                nextEnd.addDuration(duration);
-                                endJS = nextEnd.toJSDate();
-                            }
-                            
-                            if (startJS < endOfNextWeek && (endJS === null || endJS >= todayStart)) {
-                                upcomingEvents.push({ summary: event.summary, start: startJS, end: endJS, isAllDay: event.startDate.isDate });
-                            }
-                        }
-                    } catch (err) {
-                        console.warn('반복 일정 처리 오류 (건너뜀):', event.summary, err);
-                    }
+                const ev = new ICAL.Event(vevent);
+                if (!byUid[ev.uid]) byUid[ev.uid] = { master: null, exceptions: [] };
+                if (ev.recurrenceId) {
+                    byUid[ev.uid].exceptions.push(ev);
                 } else {
-                    const start = event.startDate;
-                    if (start) {
-                        const startJS = start.toJSDate();
-                        let endJS = null;
-                        if (event.endDate) {
-                            endJS = event.endDate.toJSDate();
-                        } else if (event.duration) {
-                            const end = start.clone();
-                            end.addDuration(event.duration);
-                            endJS = end.toJSDate();
-                        }
-                        
-                        if (startJS < endOfNextWeek && (endJS === null || endJS >= todayStart)) {
-                            upcomingEvents.push({ summary: event.summary, start: startJS, end: endJS, isAllDay: start.isDate });
-                        }
-                    }
+                    byUid[ev.uid].master = ev;
                 }
             });
+
+            // 마스터 반복 일정에 수정된 예외(relateException) 연결하여 원래 날짜 대신 변경된 날짜가 반영되도록 처리
+            for (let uid in byUid) {
+                const group = byUid[uid];
+                if (group.master) {
+                    group.exceptions.forEach(ex => {
+                        try {
+                            group.master.relateException(ex);
+                        } catch(e) {}
+                    });
+                }
+            }
+
+            for (let uid in byUid) {
+                const group = byUid[uid];
+                if (group.master) {
+                    const event = group.master;
+                    if (event.isRecurring()) {
+                        try {
+                            const iter = event.iterator();
+                            let next;
+                            let i = 0;
+                            while ((next = iter.next()) && i < 1000) {
+                                i++;
+                                const occ = event.getOccurrenceDetails(next);
+                                // 취소(삭제)된 단일 일정 건너뛰기
+                                if (occ.item && occ.item.component && occ.item.component.getFirstPropertyValue('status') === 'CANCELLED') {
+                                    continue;
+                                }
+                                const startJS = occ.startDate.toJSDate();
+                                if (startJS >= futureLimit) break;
+                                
+                                let endJS = occ.endDate ? occ.endDate.toJSDate() : null;
+                                if (startJS < futureLimit && (endJS === null || endJS >= todayStart)) {
+                                    upcomingEvents.push({
+                                        summary: (occ.item && occ.item.summary) || event.summary,
+                                        start: startJS,
+                                        end: endJS,
+                                        isAllDay: occ.startDate.isDate
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('반복 일정 처리 오류 (건너뜀):', event.summary, err);
+                        }
+                    } else {
+                        const start = event.startDate;
+                        if (start) {
+                            const startJS = start.toJSDate();
+                            let endJS = event.endDate ? event.endDate.toJSDate() : null;
+                            if (startJS < futureLimit && (endJS === null || endJS >= todayStart)) {
+                                upcomingEvents.push({
+                                    summary: event.summary,
+                                    start: startJS,
+                                    end: endJS,
+                                    isAllDay: start.isDate
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    // 마스터가 없는 독립된 수정 일정 처리
+                    group.exceptions.forEach(ex => {
+                        if (ex.component && ex.component.getFirstPropertyValue('status') === 'CANCELLED') return;
+                        const start = ex.startDate;
+                        if (start) {
+                            const startJS = start.toJSDate();
+                            let endJS = ex.endDate ? ex.endDate.toJSDate() : null;
+                            if (startJS < futureLimit && (endJS === null || endJS >= todayStart)) {
+                                upcomingEvents.push({
+                                    summary: ex.summary,
+                                    start: startJS,
+                                    end: endJS,
+                                    isAllDay: start.isDate
+                                });
+                            }
+                        }
+                    });
+                }
+            }
             
             upcomingEvents.sort((a, b) => a.start - b.start);
             displayEvents = upcomingEvents;
         } catch (icalError) {
             console.warn('ical.js 파싱 실패, 커스텀 파서로 폴백합니다.', icalError);
             let errorMessage = icalError.message || String(icalError);
-            
-            // errorHtml = `<div class="calendar-error">⚠️ ical.js 오류: ${errorMessage} (기본 파서로 전환됨)</div>`;
-            errorHtml = ''; // 폴백이 잘 작동하므로 사용자에게는 에러를 숨김
+            errorHtml = '';
             
             // 기존 커스텀 파서 (fallback)
             const lines = icsText.split(/\r?\n/);
@@ -339,6 +378,8 @@ async function initCalendar() {
                 } else if (currentEvent) {
                     if (line.startsWith('SUMMARY:')) {
                         currentEvent.summary = line.substring(8).trim();
+                    } else if (line.startsWith('STATUS:CANCELLED')) {
+                        currentEvent.cancelled = true;
                     } else if (line.startsWith('DTSTART')) {
                         const match = line.match(/:(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?/);
                         if (match) {
@@ -364,7 +405,8 @@ async function initCalendar() {
             }
             
             upcomingEvents = allEvents.filter(e => {
-                if (!e.start || e.start >= endOfNextWeek) return false;
+                if (e.cancelled) return false;
+                if (!e.start || e.start >= futureLimit) return false;
                 const end = e.end || e.start;
                 return end >= todayStart;
             });
@@ -630,9 +672,9 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
             const kScholarId = `korean-scholar-${index}-${lineIndex}-${idx}`;
             return `
                 <div id="${kScholarId}" style="margin-bottom: 10px; padding: 10px 12px; background: rgba(0,0,0,0.16); border-radius: 6px; border-left: 3px solid #c084fc;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-                        <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe;">${s.scholar}</div>
-                        <button class="tts-btn" onclick="toggleTTS('${kScholarId}')" id="tts-btn-${kScholarId}" title="${s.scholar} 주석 읽기/정지" style="font-size:0.72rem; padding:1px 6px; border-radius:3px; background:transparent; color:#d8b4fe; border:1px solid rgba(168,85,247,0.35); cursor:pointer;">🔊</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; gap: 8px;">
+                        <div style="font-size: 0.85em; font-weight: 700; color: #d8b4fe; flex: 1; min-width: 0;">${s.scholar}</div>
+                        <button class="tts-btn" onclick="toggleTTS('${kScholarId}')" id="tts-btn-${kScholarId}" title="${s.scholar} 주석 읽기/정지" style="font-size:0.72rem; padding:1px 6px; border-radius:3px; background:transparent; color:#d8b4fe; border:1px solid rgba(168,85,247,0.35); cursor:pointer; flex-shrink: 0;">🔊</button>
                     </div>
                     <div style="font-family: 'Noto Serif KR', 'Batang', serif; color: var(--text-primary); font-size: 0.92em; line-height: 1.6; margin-bottom: 4px;">${s.original}</div>
                     <div style="color: var(--text-secondary); font-size: 0.88em; line-height: 1.55;">${s.translation}</div>
@@ -642,12 +684,18 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
 
         return `
             <details style="margin-top: 14px; background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; padding: 10px 12px;">
-                <summary style="cursor: pointer; font-weight: 600; color: #c084fc; font-size: 0.88em; user-select: none; display: flex; justify-content: space-between; align-items: center;">
+                <summary style="cursor: pointer; font-weight: 600; color: #c084fc; font-size: 0.88em; user-select: none; padding: 3px 0;">
                     <span>🇰🇷 한국 대표 역학자(조선 성리학자) 정본 주석 보기 (${scholars.length}인 수록)</span>
-                    <button class="tts-btn" onclick="event.stopPropagation(); toggleTTS('${allKoreanId}')" id="tts-btn-${allKoreanId}" title="한국 학자 주석 전체 낭독" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 3px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe; cursor: pointer;">🔊 한국학자 전체 낭독</button>
                 </summary>
-                <div id="${allKoreanId}" style="margin-top: 10px;">
-                    ${listHtml}
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(168,85,247,0.25);">
+                    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px;">
+                        <button class="tts-btn" onclick="toggleTTS('${allKoreanId}')" id="tts-btn-${allKoreanId}" title="한국 학자 주석 전체 낭독" style="font-size: 0.75rem; padding: 3px 10px; border-radius: 4px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                            <span>🔊 한국학자 주석 낭독</span>
+                        </button>
+                    </div>
+                    <div id="${allKoreanId}">
+                        ${listHtml}
+                    </div>
                 </div>
             </details>
         `;
@@ -658,16 +706,18 @@ window.fetchIchingSectionAI = async function(index, lineIndex, btnEl) {
         const allScholarsId = `all-scholars-${index}-${lineIndex}`;
         return `
             <div style="background: var(--bg-2); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-                <div style="border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                    <div>
-                        <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em;">[${item.title}] 7대 학자 정본 주석</h5>
-                        <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
+                <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                        <div style="flex:1; min-width:0;">
+                            <h5 style="margin: 0; color: var(--text-primary); font-size: 1.05em; font-weight:700;">[${item.title}] 7대 학자 정본 주석</h5>
+                            <p style="margin: 4px 0 0; font-size: 0.8em; color: var(--text-secondary);">한국학중앙연구원 『한국주역대전』 DB 및 ctext.org 정본 판본 기준</p>
+                        </div>
+                        <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 3px 8px; border-radius: 12px; font-weight: 600; white-space:nowrap; flex-shrink:0;">✓ 공인 정본 DB</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <button class="nav-btn tts-btn" onclick="toggleTTS('${allScholarsId}')" id="tts-btn-${allScholarsId}" style="font-size:0.75rem; padding:3px 9px; border-radius:4px; display:inline-flex; align-items:center; gap:4px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:var(--primary); cursor:pointer;" title="7대 학자 주석 전체 연속 낭독">
+                    <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px;">
+                        <button class="nav-btn tts-btn" onclick="toggleTTS('${allScholarsId}')" id="tts-btn-${allScholarsId}" style="font-size:0.75rem; padding:4px 11px; border-radius:4px; display:inline-flex; align-items:center; gap:5px; background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:var(--primary); cursor:pointer; font-weight:500;" title="7대 학자 주석 전체 연속 낭독">
                             <span>🔊 전체 주석 낭독</span>
                         </button>
-                        <span style="font-size: 0.72em; background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 2px 8px; border-radius: 12px; font-weight: 600;">✓ 공인 정본 DB</span>
                     </div>
                 </div>
                 <div id="${allScholarsId}">
@@ -1384,18 +1434,17 @@ function renderStocksGrid() {
         card.dataset.code = stock.code;
         
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 95px;" title="${stock.name}">${stock.shortName || stock.name}</div>
-                <div style="display:flex; align-items:center; gap:4px;">
-                    <div class="stock-card-actions">
-                        <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, -1)" title="앞으로 이동">◀</button>
-                        <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, 1)" title="뒤로 이동">▶</button>
-                        <button class="stock-action-btn del" onclick="event.stopPropagation(); removeStockItem(${index})" title="종목 삭제">✕</button>
-                    </div>
-                    <span style="font-size:0.65rem; color:var(--text-muted); flex-shrink:0;">${isWorld ? 'USD' : 'KRW'}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:4px;">
+                <div class="stock-name" style="margin-bottom:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0;" title="${stock.name}">${stock.shortName || stock.name}</div>
+                <div class="stock-card-actions">
+                    <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, -1)" title="앞으로 이동">◀</button>
+                    <button class="stock-action-btn" onclick="event.stopPropagation(); moveStockItem(${index}, 1)" title="뒤로 이동">▶</button>
+                    <button class="stock-action-btn del" onclick="event.stopPropagation(); removeStockItem(${index})" title="종목 삭제">✕</button>
                 </div>
             </div>
-            <div class="stock-price ${colorClass}" id="price-${sid}">${price}</div>
+            <div class="stock-price ${colorClass}" id="price-${sid}">
+                ${price} <span style="font-size:0.65rem; font-weight:normal; color:var(--text-muted); margin-left:2px;">${isWorld ? 'USD' : 'KRW'}</span>
+            </div>
             <div class="stock-change ${colorClass}" id="change-${sid}">${changeText}</div>
         `;
         
